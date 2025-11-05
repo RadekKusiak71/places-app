@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/RadekKusiak71/places-app/config"
-	"github.com/RadekKusiak71/places-app/internal/users"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -29,11 +28,11 @@ func GenerateRefreshToken(refreshToken *RefreshToken) (string, error) {
 	return tokenString, nil
 }
 
-func GenerateAccessToken(user *users.User) (string, error) {
+func GenerateAccessToken(userID int) (string, error) {
 	accessExp := time.Second * time.Duration(config.Config.JWT_ACCESS_EXP_SECONDS)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessExp)),
-		Subject:   strconv.Itoa(user.ID),
+		Subject:   strconv.Itoa(userID),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 	})
 
@@ -46,17 +45,18 @@ func GenerateAccessToken(user *users.User) (string, error) {
 	return tokenString, nil
 }
 
-func ValidateToken(tokenString string) (jwt.RegisteredClaims, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
+func ValidateToken(tokenString string) (*jwt.Token, error) {
+	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (any, error) {
 		return []byte(config.Config.JWT_SECRET), nil
 	})
+
 	if err != nil {
-		return jwt.RegisteredClaims{}, err
+		return nil, err
 	}
 
-	claims, ok := token.Claims.(jwt.RegisteredClaims)
-	if !ok {
-		return jwt.RegisteredClaims{}, errors.New("invalid token")
+	if !token.Valid {
+		return nil, errors.New("invalid token")
 	}
-	return claims, nil
+
+	return token, nil
 }

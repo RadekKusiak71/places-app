@@ -6,6 +6,21 @@ import (
 	"github.com/RadekKusiak71/places-app/internal/errors"
 )
 
+func (p *RefreshPayload) Validate() error {
+	validationErrors := errors.NewValidationError()
+	p.RefreshToken = strings.TrimSpace(p.RefreshToken)
+
+	if p.RefreshToken == "" {
+		validationErrors.Add("refresh_token", []string{"refresh_token is required"})
+	}
+
+	if validationErrors.HasErrors() {
+		return validationErrors
+	}
+
+	return nil
+}
+
 func (p *RegisterPayload) Validate() *errors.ValidationError {
 	validationErrors := errors.NewValidationError()
 

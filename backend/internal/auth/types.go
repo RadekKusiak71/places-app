@@ -12,6 +12,10 @@ type LoginPayload struct {
 	Password string `json:"password"`
 }
 
+type RefreshPayload struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
 type TokenResponse struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`

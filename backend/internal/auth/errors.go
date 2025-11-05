@@ -19,3 +19,10 @@ func InvalidCredentials() errors.APIError {
 		Message:    "invalid credentials",
 	}
 }
+
+func InvalidRefreshToken() errors.APIError {
+	return errors.APIError{
+		StatusCode: http.StatusUnauthorized,
+		Message:    "invalid or expired refresh token",
+	}
+}

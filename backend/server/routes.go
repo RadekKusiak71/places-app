@@ -27,6 +27,7 @@ func (s *APIServer) SetupRouter() {
 	v1Router.Route("/auth", func(r chi.Router) {
 		r.Post("/register", utils.MakeHandlerFunc(authHandler.Register))
 		r.Post("/token", utils.MakeHandlerFunc(authHandler.ObtainJWT))
+		r.Post("/token/refresh", utils.MakeHandlerFunc(authHandler.RefreshTokens))
 	})
 
 	s.Router.Mount("/api/v1", v1Router)
