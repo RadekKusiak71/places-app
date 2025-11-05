@@ -18,11 +18,12 @@ services:
       retries: 10
 
   api:
+    container_name: places_api
     build:
       context: backend
       dockerfile: ./docker/dev.Dockerfile
     ports:
-      - 8080:80
+      - ${GO_PORT}:80
     volumes:
       - ./backend:/app
     depends_on:
