@@ -28,10 +28,12 @@ func (s *Service) RefreshTokens(refreshData *RefreshPayload) (*TokenResponse, er
 	if err := refreshData.Validate(); err != nil {
 		return nil, err
 	}
+
 	token, err := ValidateToken(refreshData.RefreshToken)
 	if err != nil {
 		return nil, err
 	}
+
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return nil, InvalidRefreshToken()
@@ -43,16 +45,17 @@ func (s *Service) RefreshTokens(refreshData *RefreshPayload) (*TokenResponse, er
 	}
 
 	tokenDB, err := s.authStore.GetRefreshTokenByID(claimJTI)
-
 	if err != nil {
 		if errors.Is(err, ErrRefreshTokenNotFound) {
 			return nil, InvalidRefreshToken()
 		}
 		return nil, err
 	}
+
 	if time.Now().Compare(tokenDB.ExpiresAt) > 0 {
 		return nil, InvalidRefreshToken()
 	}
+
 	newRefreshToken := &RefreshToken{
 		UserID:    tokenDB.UserID,
 		ExpiresAt: CalculateRefreshTokenExp(),
@@ -61,14 +64,17 @@ func (s *Service) RefreshTokens(refreshData *RefreshPayload) (*TokenResponse, er
 	if err := s.authStore.RotateRefreshToken(tokenDB.ID, newRefreshToken); err != nil {
 		return nil, err
 	}
+
 	refreshJWT, err := GenerateRefreshToken(newRefreshToken)
 	if err != nil {
 		return nil, err
 	}
+
 	accessJWT, err := GenerateAccessToken(tokenDB.UserID)
 	if err != nil {
 		return nil, err
 	}
+
 	return &TokenResponse{RefreshToken: refreshJWT, AccessToken: accessJWT}, nil
 }
 
@@ -82,6 +88,7 @@ func (s *Service) ObtainTokens(loginData *LoginPayload) (*TokenResponse, error) 
 		if errors.Is(err, users.ErrUserNotFound) {
 			return nil, InvalidCredentials()
 		}
+		return nil, err
 	}
 
 	if !utils.CheckPasswordHash(loginData.Password, user.Password) {

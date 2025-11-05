@@ -27,6 +27,7 @@ func (s *Store) RotateRefreshToken(oldTokenID string, newRefreshToken *RefreshTo
 	if err != nil {
 		return err
 	}
+
 	defer tx.Rollback()
 
 	_, err = tx.Exec("DELETE FROM refresh_tokens WHERE id = $1", oldTokenID)
@@ -34,12 +35,13 @@ func (s *Store) RotateRefreshToken(oldTokenID string, newRefreshToken *RefreshTo
 		return err
 	}
 
-	err = tx.QueryRow(
+	row := tx.QueryRow(
 		"INSERT INTO refresh_tokens (user_id, expires_at) VALUES ($1, $2) RETURNING id",
-		newRefreshToken.UserID, newRefreshToken.ExpiresAt,
-	).Scan(&newRefreshToken.ID)
+		newRefreshToken.UserID,
+		newRefreshToken.ExpiresAt,
+	)
 
-	if err != nil {
+	if err := row.Scan(&newRefreshToken.ID); err != nil {
 		return err
 	}
 
