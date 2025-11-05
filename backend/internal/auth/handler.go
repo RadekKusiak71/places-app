@@ -8,6 +8,7 @@ import (
 
 type AuthHandler interface {
 	Register(w http.ResponseWriter, r *http.Request) error
+	ObtainJWT(w http.ResponseWriter, r *http.Request) error
 }
 
 type Handler struct {
@@ -18,6 +19,20 @@ func NewAuthHandler(authService AuthService) AuthHandler {
 	return &Handler{
 		authService: authService,
 	}
+}
+
+func (h *Handler) ObtainJWT(w http.ResponseWriter, r *http.Request) error {
+	var loginPayload LoginPayload
+	if err := utils.ReadJSON(r, &loginPayload); err != nil {
+		return err
+	}
+
+	tokenResponse, err := h.authService.ObtainTokens(&loginPayload)
+	if err != nil {
+		return err
+	}
+
+	return utils.WriteJSON(w, http.StatusOK, tokenResponse)
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) error {

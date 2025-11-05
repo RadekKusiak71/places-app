@@ -18,12 +18,15 @@ func (s *APIServer) SetupRouter() {
 	s.Router.Use(middleware.Timeout(60 * time.Second))
 
 	userStore := users.NewStore(s.DB)
-	authService := auth.NewService(userStore)
+	authStore := auth.NewStore(s.DB)
+
+	authService := auth.NewService(userStore, authStore)
 	authHandler := auth.NewAuthHandler(authService)
 
 	v1Router := chi.NewRouter()
 	v1Router.Route("/auth", func(r chi.Router) {
 		r.Post("/register", utils.MakeHandlerFunc(authHandler.Register))
+		r.Post("/token", utils.MakeHandlerFunc(authHandler.ObtainJWT))
 	})
 
 	s.Router.Mount("/api/v1", v1Router)

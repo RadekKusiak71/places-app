@@ -12,3 +12,10 @@ func ErrUsernameIsTaken() errors.APIError {
 		Message:    "username is already taken",
 	}
 }
+
+func InvalidCredentials() errors.APIError {
+	return errors.APIError{
+		StatusCode: http.StatusUnauthorized,
+		Message:    "invalid credentials",
+	}
+}
