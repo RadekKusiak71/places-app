@@ -9,29 +9,28 @@ import (
 
 type APIFunc func(http.ResponseWriter, *http.Request) error
 
-func MakeHandlerFunc(next APIFunc) http.HandlerFunc {
+func MakeHandlerFunc(f APIFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := next(w, r)
-		if err == nil {
-			return
-		}
+		err := f(w, r)
 
-		apiErr, ok := err.(errors.APIError)
-		if ok {
-			WriteJSON(w, apiErr.StatusCode, apiErr)
-			return
-		}
+		if err != nil {
+			apiErr, ok := err.(errors.APIError)
+			if ok {
+				WriteJSON(w, apiErr.StatusCode, apiErr)
+				return
+			}
 
-		validationError, ok := err.(*errors.ValidationError)
-		if ok {
-			WriteJSON(w, validationError.StatusCode, validationError)
-			return
-		}
+			validationError, ok := err.(*errors.ValidationError)
+			if ok {
+				WriteJSON(w, validationError.StatusCode, validationError)
+				return
+			}
 
-		log.Printf("Not handled error occured: %s", err.Error())
-		WriteJSON(w, http.StatusInternalServerError, map[string]any{
-			"status_code": http.StatusInternalServerError,
-			"message":     http.StatusText(http.StatusInternalServerError),
-		})
+			log.Printf("Not handled error occured: %s", err.Error())
+			WriteJSON(w, http.StatusInternalServerError, map[string]any{
+				"status_code": http.StatusInternalServerError,
+				"message":     http.StatusText(http.StatusInternalServerError),
+			})
+		}
 	}
 }

@@ -25,6 +25,7 @@ func NewAPIServer(port string, db *sql.DB) *APIServer {
 }
 
 func (s *APIServer) Start() error {
+	s.SetupRouter()
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%s", s.Port),
 		Handler:      s.Router,

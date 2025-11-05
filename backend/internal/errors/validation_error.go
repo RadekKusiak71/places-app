@@ -1,6 +1,9 @@
 package errors
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+)
 
 type ValidationError struct {
 	StatusCode int
@@ -11,9 +14,9 @@ func (err *ValidationError) Error() string {
 	return fmt.Sprintf("Validation error: status_code=%d, message=%s", err.StatusCode, err.Message)
 }
 
-func NewValidationError(statusCode int) *ValidationError {
+func NewValidationError() *ValidationError {
 	return &ValidationError{
-		StatusCode: statusCode,
+		StatusCode: http.StatusUnprocessableEntity,
 		Message:    make(map[string][]string),
 	}
 }

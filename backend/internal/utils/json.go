@@ -10,7 +10,7 @@ func ReadJSON(r *http.Request, v any) error {
 }
 
 func WriteJSON(w http.ResponseWriter, statusCode int, v any) error {
-	if statusCode != http.StatusNoContent {
+	if statusCode == http.StatusNoContent {
 		w.WriteHeader(statusCode)
 		return nil
 	}
