@@ -1,50 +1,40 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"github.com/RadekKusiak71/places-app/internal/users"
-	"github.com/RadekKusiak71/places-app/internal/utils"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type AuthService interface {
-	RegisterUser(registerData *RegisterPayload) (*users.User, error)
-	ObtainTokens(loginData *LoginPayload) (*TokenResponse, error)
-	RefreshTokens(refreshData *RefreshPayload) (*TokenResponse, error)
+	RegisterUser(ctx context.Context, registerData *RegisterPayload) (*users.User, error)
+	ObtainJWT(ctx context.Context, loginData *LoginPayload) (*TokenResponse, error)
+	RotateRefreshToken(ctx context.Context, refreshTokenPayload *RefreshTokenPayload) (*TokenResponse, error)
 }
 
 type Service struct {
-	userStore users.UserStore
-	authStore AuthStore
+	userStore  users.UserStore
+	jwtService JWTManager
+	authStore  AuthStore
 }
 
-func NewService(userStore users.UserStore, authStore AuthStore) AuthService {
-	return &Service{userStore: userStore, authStore: authStore}
+func NewService(userStore users.UserStore, jwtService JWTManager, authStore AuthStore) AuthService {
+	return &Service{userStore: userStore, jwtService: jwtService, authStore: authStore}
 }
 
-func (s *Service) RefreshTokens(refreshData *RefreshPayload) (*TokenResponse, error) {
-	if err := refreshData.Validate(); err != nil {
+func (s *Service) RotateRefreshToken(ctx context.Context, refreshTokenPayload *RefreshTokenPayload) (*TokenResponse, error) {
+	if err := refreshTokenPayload.Validate(); err != nil {
 		return nil, err
 	}
 
-	token, err := ValidateToken(refreshData.RefreshToken)
+	refreshClaims, err := s.jwtService.ValidateRefreshToken(refreshTokenPayload.RefreshToken)
 	if err != nil {
-		return nil, err
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
 		return nil, InvalidRefreshToken()
 	}
 
-	claimJTI, ok := claims["jti"].(string)
-	if !ok {
-		return nil, InvalidRefreshToken()
-	}
-
-	tokenDB, err := s.authStore.GetRefreshTokenByID(claimJTI)
+	storedToken, err := s.authStore.GetRefreshToken(ctx, refreshClaims.ID)
 	if err != nil {
 		if errors.Is(err, ErrRefreshTokenNotFound) {
 			return nil, InvalidRefreshToken()
@@ -52,38 +42,28 @@ func (s *Service) RefreshTokens(refreshData *RefreshPayload) (*TokenResponse, er
 		return nil, err
 	}
 
-	if time.Now().Compare(tokenDB.ExpiresAt) > 0 {
+	if storedToken.ExpiresAt.Before(time.Now()) {
 		return nil, InvalidRefreshToken()
 	}
 
 	newRefreshToken := &RefreshToken{
-		UserID:    tokenDB.UserID,
-		ExpiresAt: CalculateRefreshTokenExp(),
+		UserID:    storedToken.UserID,
+		ExpiresAt: s.jwtService.GetRefreshTokenExpiry(),
 	}
 
-	if err := s.authStore.RotateRefreshToken(tokenDB.ID, newRefreshToken); err != nil {
+	if err := s.authStore.RotateRefreshToken(ctx, storedToken.ID, newRefreshToken); err != nil {
 		return nil, err
 	}
 
-	refreshJWT, err := GenerateRefreshToken(newRefreshToken)
-	if err != nil {
-		return nil, err
-	}
-
-	accessJWT, err := GenerateAccessToken(tokenDB.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &TokenResponse{RefreshToken: refreshJWT, AccessToken: accessJWT}, nil
+	return s.generateTokenPair(storedToken.UserID, newRefreshToken)
 }
 
-func (s *Service) ObtainTokens(loginData *LoginPayload) (*TokenResponse, error) {
+func (s *Service) ObtainJWT(ctx context.Context, loginData *LoginPayload) (*TokenResponse, error) {
 	if err := loginData.Validate(); err != nil {
 		return nil, err
 	}
 
-	user, err := s.userStore.GetUser(loginData.Username)
+	user, err := s.userStore.GetUser(ctx, loginData.Username)
 	if err != nil {
 		if errors.Is(err, users.ErrUserNotFound) {
 			return nil, InvalidCredentials()
@@ -91,46 +71,28 @@ func (s *Service) ObtainTokens(loginData *LoginPayload) (*TokenResponse, error) 
 		return nil, err
 	}
 
-	if !utils.CheckPasswordHash(loginData.Password, user.Password) {
+	if !CheckPassword(loginData.Password, user.Password) {
 		return nil, InvalidCredentials()
 	}
 
-	return s.issueTokenPair(user.ID)
-}
-
-func (s *Service) issueTokenPair(userID int) (*TokenResponse, error) {
 	refreshToken := &RefreshToken{
-		UserID:    userID,
-		ExpiresAt: CalculateRefreshTokenExp(),
+		UserID:    user.ID,
+		ExpiresAt: s.jwtService.GetRefreshTokenExpiry(),
 	}
 
-	if err := s.authStore.CreateRefreshToken(refreshToken); err != nil {
+	if err := s.authStore.CreateRefreshToken(ctx, refreshToken); err != nil {
 		return nil, err
 	}
 
-	refreshJWT, err := GenerateRefreshToken(refreshToken)
-	if err != nil {
-		// Best-effort cleanup: If JWT generation fails, delete the
-		// orphaned token we just created.
-		_ = s.authStore.DeleteRefreshToken(refreshToken.ID)
-		return nil, err
-	}
-
-	accessJWT, err := GenerateAccessToken(userID)
-	if err != nil {
-		_ = s.authStore.DeleteRefreshToken(refreshToken.ID)
-		return nil, err
-	}
-
-	return &TokenResponse{RefreshToken: refreshJWT, AccessToken: accessJWT}, nil
+	return s.generateTokenPair(user.ID, refreshToken)
 }
 
-func (s *Service) RegisterUser(registerData *RegisterPayload) (*users.User, error) {
+func (s *Service) RegisterUser(ctx context.Context, registerData *RegisterPayload) (*users.User, error) {
 	if err := registerData.Validate(); err != nil {
 		return nil, err
 	}
 
-	_, err := s.userStore.GetUser(registerData.Username)
+	_, err := s.userStore.GetUser(ctx, registerData.Username)
 	if err == nil {
 		return nil, ErrUsernameIsTaken()
 	}
@@ -139,7 +101,7 @@ func (s *Service) RegisterUser(registerData *RegisterPayload) (*users.User, erro
 		return nil, err
 	}
 
-	hashedPassword, err := utils.HashPassword(registerData.Password)
+	hashedPassword, err := HashPassword(registerData.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -149,9 +111,26 @@ func (s *Service) RegisterUser(registerData *RegisterPayload) (*users.User, erro
 		Password: hashedPassword,
 	}
 
-	if err := s.userStore.CreateUser(user); err != nil {
+	if err := s.userStore.CreateUser(ctx, user); err != nil {
 		return nil, err
 	}
 
 	return user, nil
+}
+
+func (s *Service) generateTokenPair(userID int, refreshToken *RefreshToken) (*TokenResponse, error) {
+	refreshTokenString, err := s.jwtService.GenerateRefreshToken(refreshToken)
+	if err != nil {
+		return nil, err
+	}
+
+	accessTokenString, err := s.jwtService.GenerateAccessToken(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TokenResponse{
+		AccessToken:  accessTokenString,
+		RefreshToken: refreshTokenString,
+	}, nil
 }

@@ -17,10 +17,15 @@ func (s *APIServer) SetupRouter() {
 	s.Router.Use(middleware.Recoverer)
 	s.Router.Use(middleware.Timeout(60 * time.Second))
 
-	userStore := users.NewStore(s.DB)
+	// Stores
 	authStore := auth.NewStore(s.DB)
+	userStore := users.NewStore(s.DB)
 
-	authService := auth.NewService(userStore, authStore)
+	// Services
+	jwtService := auth.NewJWTService()
+	authService := auth.NewService(userStore, jwtService, authStore)
+
+	// Handlers
 	authHandler := auth.NewAuthHandler(authService)
 
 	v1Router := chi.NewRouter()

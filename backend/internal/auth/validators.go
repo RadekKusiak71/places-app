@@ -6,12 +6,13 @@ import (
 	"github.com/RadekKusiak71/places-app/internal/errors"
 )
 
-func (p *RefreshPayload) Validate() error {
+func (p *RefreshTokenPayload) Validate() *errors.ValidationError {
 	validationErrors := errors.NewValidationError()
+
 	p.RefreshToken = strings.TrimSpace(p.RefreshToken)
 
 	if p.RefreshToken == "" {
-		validationErrors.Add("refresh_token", []string{"refresh_token is required"})
+		validationErrors.Add("refresh_token", []string{"refresh_token is missing"})
 	}
 
 	if validationErrors.HasErrors() {
@@ -51,12 +52,12 @@ func (p *LoginPayload) Validate() *errors.ValidationError {
 	p.Username = strings.TrimSpace(p.Username)
 	p.Password = strings.TrimSpace(p.Password)
 
-	if len(p.Username) == 0 {
-		validationErrors.Add("username", []string{"username is required"})
+	if p.Username == "" {
+		validationErrors.Add("username", []string{"username is missing"})
 	}
 
-	if len(p.Password) == 0 {
-		validationErrors.Add("password", []string{"password is required"})
+	if p.Password == "" {
+		validationErrors.Add("password", []string{"password is missing"})
 	}
 
 	if validationErrors.HasErrors() {

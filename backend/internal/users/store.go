@@ -1,6 +1,7 @@
 package users
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 )
@@ -8,8 +9,8 @@ import (
 var ErrUserNotFound = errors.New("user not found")
 
 type UserStore interface {
-	CreateUser(user *User) error
-	GetUser(username string) (*User, error)
+	CreateUser(ctx context.Context, user *User) error
+	GetUser(ctx context.Context, username string) (*User, error)
 }
 
 type Store struct {
@@ -20,8 +21,8 @@ func NewStore(db *sql.DB) UserStore {
 	return &Store{db: db}
 }
 
-func (s *Store) GetUser(username string) (*User, error) {
-	row := s.db.QueryRow(
+func (s *Store) GetUser(ctx context.Context, username string) (*User, error) {
+	row := s.db.QueryRowContext(ctx,
 		`SELECT id, username, password, created_at FROM users WHERE username = $1`,
 		username,
 	)
@@ -35,8 +36,8 @@ func (s *Store) GetUser(username string) (*User, error) {
 	return user, nil
 }
 
-func (s *Store) CreateUser(user *User) error {
-	row := s.db.QueryRow(
+func (s *Store) CreateUser(ctx context.Context, user *User) error {
+	row := s.db.QueryRowContext(ctx,
 		`INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id, created_at`,
 		user.Username,
 		user.Password,
