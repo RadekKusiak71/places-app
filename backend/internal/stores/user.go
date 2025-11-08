@@ -20,6 +20,20 @@ func NewUserStore(db *sql.DB) *UserStore {
 	return &UserStore{db: db}
 }
 
+func (s *UserStore) Get(ctx context.Context, userID int) (*models.User, error) {
+	row := s.db.QueryRowContext(ctx, `SELECT id, username, password, created_at FROM users WHERE id = $1`, userID)
+
+	user := new(models.User)
+	if err := row.Scan(&user.ID, &user.Username, &user.Password, &user.CreatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return user, nil
+}
+
 func (s *UserStore) GetByUsername(ctx context.Context, username string) (*models.User, error) {
 	row := s.db.QueryRowContext(ctx, `SELECT id, username, password, created_at FROM users WHERE username = $1`, username)
 

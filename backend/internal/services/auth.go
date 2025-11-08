@@ -72,13 +72,13 @@ func (s *AuthService) ObtainTokensPair(ctx context.Context, loginData *models.Lo
 	user, err := s.userStore.GetByUsername(ctx, loginData.Username)
 	if err != nil {
 		if errors.Is(err, stores.ErrUserNotFound) {
-			return nil, errs.ErrInvalidCredentials()
+			return nil, errs.InvalidCredentialsError()
 		}
 		return nil, err
 	}
 
 	if err := password.Compare(loginData.Password, user.Password); err != nil {
-		return nil, errs.ErrInvalidCredentials()
+		return nil, errs.InvalidCredentialsError()
 	}
 
 	dbRefreshToken := &models.RefreshToken{
@@ -101,7 +101,7 @@ func (s *AuthService) RegisterUser(ctx context.Context, registerData *models.Reg
 	_, err := s.userStore.GetByUsername(ctx, registerData.Username)
 
 	if err == nil {
-		return nil, errs.ErrUserAlreadyExists()
+		return nil, errs.UserAlreadyExistsError()
 	}
 
 	if !errors.Is(err, stores.ErrUserNotFound) {

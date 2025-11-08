@@ -2,6 +2,7 @@ package errors
 
 import (
 	"fmt"
+	"net/http"
 )
 
 type APIError struct {
@@ -15,4 +16,12 @@ func (err APIError) Error() string {
 
 func NewAPIError(statusCode int, message any) error {
 	return APIError{StatusCode: statusCode, Message: message}
+}
+
+func InternalServerError() error {
+	return NewAPIError(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+}
+
+func InvalidRequestError() error {
+	return NewAPIError(http.StatusBadRequest, http.StatusText(http.StatusBadRequest))
 }

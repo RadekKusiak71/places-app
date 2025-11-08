@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/RadekKusiak71/places-app/internal/middlewares"
 	"time"
 
 	"github.com/RadekKusiak71/places-app/internal/handlers"
@@ -20,10 +21,18 @@ func (s *APIServer) SetupRouter() {
 
 	v1Router := chi.NewRouter()
 
+	// Stores
 	userStore := stores.NewUserStore(s.DB)
 	rtStore := stores.NewRefreshTokenStore(s.DB)
+	placesStore := stores.NewPlacesStore(s.DB)
+
+	// Service
 	authService := services.NewAuthService(userStore, rtStore)
+	placesService := services.NewPlacesService(placesStore)
+
+	// Handlers
 	authHandler := handlers.NewAuthHandler(authService)
+	placesHandler := handlers.NewPlacesHandler(placesService)
 
 	v1Router.Route("/auth", func(r chi.Router) {
 		r.Post("/register", utils.MakeHandlerFunc(authHandler.Register))
@@ -32,18 +41,16 @@ func (s *APIServer) SetupRouter() {
 	})
 
 	v1Router.Route("/places", func(r chi.Router) {
-		r.Get("/", nil)
-		r.Post("/", nil)
-		r.Get("/{placeID}", nil)
-		r.Put("/{placeID}", nil)
-		r.Delete("/{placeID}", nil)
+		r.Get("/", utils.MakeHandlerFunc(middlewares.AuthMiddleware(placesHandler.ListPlaces, userStore)))
+		r.Post("/", utils.MakeHandlerFunc(middlewares.AuthMiddleware(placesHandler.CreatePlace, userStore)))
+		r.Get("/{placeID}", utils.MakeHandlerFunc(middlewares.AuthMiddleware(placesHandler.RetrievePlace, userStore)))
+		r.Delete("/{placeID}", utils.MakeHandlerFunc(middlewares.AuthMiddleware(placesHandler.DeletePlace, userStore)))
 
 		r.Route("/{placeID}/photos", func(r chi.Router) {
 			r.Get("/", nil)
 			r.Post("/", nil)
 			r.Delete("/{photoID}", nil)
 		})
-
 	})
 
 	v1Router.Route("/users", func(r chi.Router) {

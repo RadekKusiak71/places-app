@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-func ErrUserAlreadyExists() error {
+func UserAlreadyExistsError() error {
 	return APIError{
 		StatusCode: http.StatusConflict,
 		Message:    "user with the given username already exists",

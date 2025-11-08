@@ -3,7 +3,6 @@ package jwt
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/RadekKusiak71/places-app/config"
@@ -24,8 +23,8 @@ func signToken(token *jwt.Token) (string, error) {
 
 func GenerateAccessToken(userID int, expTime time.Time) (string, error) {
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, models.AccessTokenClaims{
+		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   strconv.Itoa(userID),
 			ExpiresAt: jwt.NewNumericDate(expTime),
 		},
 	})

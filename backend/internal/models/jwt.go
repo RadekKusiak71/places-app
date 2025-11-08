@@ -19,5 +19,6 @@ type RefreshTokenClaims struct {
 }
 
 type AccessTokenClaims struct {
+	UserID int `json:"user_id"`
 	jwt.RegisteredClaims
 }
